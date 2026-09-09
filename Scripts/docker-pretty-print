@@ -1,0 +1,67 @@
+#!/usr/bin/env bash
+# Tabla de contenedores con las IPs de la maquina en la cabecera. La columna
+# PORTS trae solo los publicados al host: descarta los EXPOSE y el duplicado
+# IPv4/IPv6. Acepta los flags de `docker ps`.
+
+set -uo pipefail
+
+if [[ -t 1 ]]; then
+  bold=$'\e[1m'; dim=$'\e[2m'; cyan=$'\e[36m'; reset=$'\e[0m'
+else
+  bold=''; dim=''; cyan=''; reset=''
+fi
+
+# Con eth y wifi arriba a la vez hay varias rutas por defecto; la primera es la
+# de menor metrica, o sea la que el kernel usaria para salir.
+lan_if=$(ip route show default 2>/dev/null |
+  awk 'NR==1 { for (i = 1; i <= NF; i++) if ($i == "dev") { print $(i+1); exit } }')
+
+if [[ -n "$lan_if" ]]; then
+  lan_ip=$(ip -4 -o addr show dev "$lan_if" scope global 2>/dev/null | awk '{print $4; exit}')
+fi
+: "${lan_ip:=sin IP}"
+
+if command -v tailscale >/dev/null 2>&1; then
+  ts4=$(tailscale ip -4 2>/dev/null | head -1)
+  ts6=$(tailscale ip -6 2>/dev/null | head -1)
+fi
+
+if [[ -n "${ts4:-}" && -n "${ts6:-}" ]]; then
+  ts="${ts4} ${dim}/${reset} ${ts6}"
+elif [[ -n "${ts4:-}${ts6:-}" ]]; then
+  ts="${ts4:-}${ts6:-}"
+else
+  ts="${dim}no disponible${reset}"
+fi
+
+printf '%s%sLan:%s %s %s|%s %s%sTailscale:%s %s\n\n' \
+  "$bold" "$cyan" "$reset" "$lan_ip" \
+  "$dim" "$reset" "$bold" "$cyan" "$reset" "$ts"
+
+if ! docker info >/dev/null 2>&1; then
+  echo "${dim}docker no responde (¿el demonio esta corriendo?)${reset}" >&2
+  exit 1
+fi
+
+# -s es lo que llena {{.Size}}; sin ese flag sale vacio.
+docker ps -s "$@" \
+  --format '{{.ID}}	{{.Names}}	{{.CreatedAt}}	{{.Status}}	{{.Ports}}	{{.Size}}' \
+| awk -F'\t' '
+  BEGIN { OFS = "\t"; print "ID", "NAMES", "CREATED", "STATUS", "PORTS", "SIZE" }
+  {
+    # Docker repite el offset horario en dos formatos: "-0500 -05".
+    sub(/ -[0-9]+ [A-Za-z0-9+-]+$/, "", $3)
+
+    n = split($5, a, ", "); p = ""; delete seen
+    for (i = 1; i <= n; i++) {
+      if (a[i] !~ /->/) continue          # sin flecha = EXPOSE, no publicado
+      split(a[i], b, "->")
+      hp = b[1];  sub(/.*:/, "", hp)
+      pr = b[2];  sub(/.*\//, "", pr)
+      k = hp "/" pr
+      if (!(k in seen)) { seen[k] = 1; p = p (p ? "," : "") k }
+    }
+    $5 = (p == "" ? "-" : p)
+    print
+  }
+' | column -t -s $'\t'

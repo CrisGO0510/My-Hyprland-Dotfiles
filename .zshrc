@@ -141,5 +141,6 @@ alias l='eza -lh --icons=auto'
 alias ll='eza -lha --icons=auto --sort=name --group-directories-first'
 alias ld='eza -lhD --icons=auto'
 alias lt='eza --icons=auto --tree'
+alias lsd="$HOME/Scripts/docker-pretty-print"
 
 alias claude='claude --dangerously-skip-permissions'

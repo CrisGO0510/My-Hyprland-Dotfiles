@@ -17,4 +17,13 @@ ShellRoot {
         function toggleDnd(): void { Notifs.toggleDnd() }
         function panel(): void { Notifs.panelRequested() }
     }
+
+    // IPC del pomodoro (mod+P)
+    IpcHandler {
+        target: "pomo"
+        function primary(): void { Pomo.primary() }
+        function reset(): void { Pomo.reset() }
+        function skip(): void { Pomo.skip() }
+        function stop(): void { Pomo.stop() }
+    }
 }

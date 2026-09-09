@@ -16,11 +16,22 @@ PanelWindow {
     // margen interno lateral
     readonly property int pad: 6
 
+    // El OSD de volumen solo asoma en el monitor con foco.
+    readonly property bool focused: Hyprland.focusedMonitor !== null
+                                    && modelData.name === Hyprland.focusedMonitor.name
+
     // IZQUIERDA — workspaces
     Island {
         id: leftIsland
         anchors { left: parent.left; leftMargin: bar.pad; verticalCenter: parent.verticalCenter }
         WorkspacesWidget {}
+    }
+
+    // Pomodoro: cápsula propia a la derecha de los workspaces
+    Island {
+        id: pomoIsland
+        anchors { left: leftIsland.right; leftMargin: bar.pad; verticalCenter: parent.verticalCenter }
+        PomodoroWidget { id: pomo }
     }
 
     // CENTRO — reloj
@@ -38,7 +49,7 @@ PanelWindow {
         // Los widgets van directos: Island ya los coloca en su Row interno (centrado).
         MusicWidget    { id: music }
         NetspeedWidget {}
-        VolumeWidget   {}
+        VolumeWidget   { osdEnabled: bar.focused }
         KeyboardWidget {}
         BatteryWidget  {}
         TrayWidget     {}
@@ -51,6 +62,11 @@ PanelWindow {
 
     CalendarPopup { id: calPopup; anchorItem: centerIsland }
     Connections { target: clock; function onClicked() { calPopup.visible = !calPopup.visible } }
+
+    PomodoroPopup { id: pomoPopup; anchorItem: pomoIsland }
+    Connections { target: pomo
+        function onClicked() { Pomo.primary() }
+        function onMenuRequested() { pomoPopup.visible = !pomoPopup.visible } }
 
     MusicPopup  { id: musicPopup; anchorItem: rightIsland }
     Connections { target: music; function onClicked() { musicPopup.visible = !musicPopup.visible } }

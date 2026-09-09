@@ -2,14 +2,10 @@
 
 # Set local configuration variables
 confDir="$HOME/.config"
-icodir="${confDir}/swaync/icons"  # Updated to use swaync icons
 step=5
 
-# Check if SwayOSD is installed
-use_swayosd=false
-if command -v swayosd-client >/dev/null 2>&1 && pgrep -x swayosd-server >/dev/null; then
-    use_swayosd=true
-fi
+# El aviso de volumen/mute lo dibuja la barra: VolumeWidget.qml escucha a
+# Pipewire y asoma su tooltip. Por eso aqui no se manda ninguna notificacion.
 
 # Check if SwayNC is available, otherwise fall back to notify-send
 use_swaync=false
@@ -48,72 +44,30 @@ EOF
     exit 1
 }
 
-notify_vol() {
-    # Use generic volume icon for swaync
-    ico="${icodir}/volume.svg"
-    bar=$(seq -s "." $(($vol / 15)) | sed 's/[0-9]//g')
-    
-    if $use_swaync; then
-        swaync-client -n --body "${vol}${bar} - ${nsink}" --summary "Volume" --icon "${ico}" --app-name "volumecontrol" --replace-id 91190
-    else
-        notify-send -a "t2" -r 91190 -t 800 -i "${ico}" "${vol}${bar}" "${nsink}"
-    fi
-}
-
-notify_mute() {
-    mute=$(pamixer "${srce}" --get-mute)
-    [ "${srce}" = "--default-source" ] && dvce="mic" || dvce="speaker"
-    
-    if [ "${mute}" = "true" ]; then
-        if $use_swaync; then
-            swaync-client -n --body "Muted - ${nsink}" --summary "Audio" --icon "${icodir}/volume-muted.svg" --app-name "volumecontrol" --replace-id 91190
-        else
-            notify-send -a "t2" -r 91190 -t 800 -i "${icodir}/volume-muted.svg" "muted" "${nsink}"
-        fi
-    else
-        if $use_swaync; then
-            swaync-client -n --body "Unmuted - ${nsink}" --summary "Audio" --icon "${icodir}/volume.svg" --app-name "volumecontrol" --replace-id 91190
-        else
-            notify-send -a "t2" -r 91190 -t 800 -i "${icodir}/volume.svg" "unmuted" "${nsink}"
-        fi
-    fi
-}
-
 change_volume() {
     local action=$1
     local step=$2
     local device=$3
     local delta="-"
-    local mode="--output-volume"
 
     [ "${action}" = "i" ] && delta="+"
-    [ "${srce}" = "--default-source" ] && mode="--input-volume"
 
     case $device in
         "pamixer")
-            $use_swayosd && swayosd-client ${mode} "${delta}${step}" && exit 0
             pamixer $srce -"$action" "$step"
-            vol=$(pamixer $srce --get-volume)
             ;;
         "playerctl")
             playerctl --player="$srce" volume "$(awk -v step="$step" 'BEGIN {print step/100}')${delta}"
-            vol=$(playerctl --player="$srce" volume | awk '{ printf "%.0f\n", $0 * 100 }')
             ;;
     esac
-
-    notify_vol
 }
 
 toggle_mute() {
     local device=$1
-    local mode="--output-volume"
-    [ "${srce}" = "--default-source" ] && mode="--input-volume"
 
     case $device in
         "pamixer")
-            $use_swayosd && swayosd-client "${mode}" mute-toggle && exit 0
             pamixer $srce -t
-            notify_mute
             ;;
         "playerctl")
             local volume_file="/tmp/$(basename "$0")_last_volume_${srce:-all}"
@@ -128,7 +82,6 @@ toggle_mute() {
                     playerctl --player="$srce" volume 0.5
                 fi
             fi
-            notify_mute
             ;;
     esac
 }
@@ -172,17 +125,14 @@ while getopts "iop:st" opt; do
         i)
             device="pamixer"
             srce="--default-source"
-            nsink=$(pamixer --list-sources | awk -F '"' 'END {print $(NF - 1)}')
             ;;
         o)
             device="pamixer"
             srce=""
-            nsink=$(pamixer --get-default-sink | awk -F '"' 'END{print $(NF - 1)}')
             ;;
         p)
             device="playerctl"
             srce="${OPTARG}"
-            nsink=$(playerctl --list-all | grep -w "$srce")
             ;;
         s)
             select_output "$(select_output | rofi -dmenu -config "${confDir}/rofi/config.rasi")"

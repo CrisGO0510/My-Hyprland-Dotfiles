@@ -144,6 +144,7 @@ hl.bind(MOD .. " + slash", hl.dsp.exec_cmd("pkill -x rofi || " .. SCR_PATH .. "/
 
 hl.bind(MOD .. " + N", hl.dsp.exec_cmd("qs -c bar ipc call notifs panel"), { description = "Panel de notificaciones" })
 hl.bind(MOD .. " + SHIFT + N", hl.dsp.exec_cmd("qs -c bar ipc call notifs toggleDnd"), { description = "Alternar No molestar" })
+hl.bind(MOD .. " + P", hl.dsp.exec_cmd("qs -c bar ipc call pomo primary"), { description = "Pomodoro: arrancar / pausar / confirmar fase" })
 
 
 -- █▀▀ █▀█ █▀▀ █▀█   ░   █▀▄▀█ █▀█ █░█ █ █▀▄▀█ █ █▀▀ █▄░█ ▀█▀ █▀█

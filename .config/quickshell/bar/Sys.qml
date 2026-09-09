@@ -54,7 +54,13 @@ Singleton {
     FileView { id: tempFile; path: root.tempPath; blockLoading: true; printErrors: false }
     FileView { id: netFile;  path: "/proc/net/dev"; blockLoading: true; printErrors: false }
     FileView { id: upFile;   path: "/proc/uptime";  blockLoading: true; printErrors: false }
-    FileView { id: probeFile; blockLoading: true; printErrors: false }
+    // Una instancia nueva por sonda: reasignar `path` en un FileView existente no
+    // recarga de forma sincrona — text() sigue devolviendo el primer archivo leido,
+    // asi que la comparacion de abajo fallaba siempre y caia al fallback acpitz.
+    Component {
+        id: probeComponent
+        FileView { blockLoading: true; printErrors: false }
+    }
 
     // Busca el primer hwmon cuyo nombre esté en tempSensors, por orden de
     // preferencia. Sólo corre una vez, al inicio.
@@ -62,13 +68,15 @@ Singleton {
         for (const wanted of root.tempSensors) {
             for (let i = 0; i < 16; i++) {
                 const dir = "/sys/class/hwmon/hwmon" + i;
-                try {
-                    probeFile.path = dir + "/name";
-                    if (probeFile.text().trim() === wanted) {
-                        root.tempPath = dir + "/temp1_input";
-                        return;
-                    }
-                } catch (e) {}
+                const fv = probeComponent.createObject(root);
+                if (!fv) continue;
+                let name = "";
+                try { fv.path = dir + "/name"; name = fv.text().trim(); } catch (e) {}
+                fv.destroy();
+                if (name === wanted) {
+                    root.tempPath = dir + "/temp1_input";
+                    return;
+                }
             }
         }
     }

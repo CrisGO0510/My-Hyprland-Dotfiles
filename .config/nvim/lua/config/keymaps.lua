@@ -630,10 +630,11 @@ wk.add({
 	},
 })
 
--- flash.nvim (setup() no crea ningún mapeo por su cuenta)
+-- flash.nvim (los mapeos se declaran aquí; char mode va desactivado)
+-- "s" queda libre para el sustituir nativo de vim; el salto vive en "f".
 wk.add({
 	{
-		"s",
+		"f",
 		function()
 			require("flash").jump()
 		end,
